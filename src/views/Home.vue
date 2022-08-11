@@ -15,6 +15,8 @@
             type="text"
             placeholder="请输入IP地址"
             v-model="IP"
+            @keypress.enter="getIPLocation"
+            :disabled="isLoading"
           />
           <i
             class="bg-black  text-white px-4 rounded-tr-md rounded-br-md flex items-center fas fa-chevron-right"
@@ -23,7 +25,7 @@
           ></i>
         </div>
       </div>
-      <IPInfo v-if="ipInfo" :ipInfo="ipInfo"></IPInfo>
+      <IPInfo v-if="ipInfo" :ipInfo="ipInfo" @reset="reset"></IPInfo>
     </div>
     <!-- map -->
     <div id="map" class="h-full overflow-hidden z-10"></div>
@@ -43,9 +45,14 @@ export default {
   setup() {
     let map,
       IP = ref(''),
-      ipInfo = ref(null)
+      ipInfo = ref(null),
+      latlng = [23.036194, 113.777157],
+      isLoading = ref(false),
+      reg = /^\d{1,3}(\.\d{1,3}){3}/,
+      lastIP = ' ',
+      point
     onMounted(() => {
-      map = leaflet.map('map').setView([23.036194, 113.777157], 9)
+      map = leaflet.map('map').setView(latlng, 4)
       leaflet
         .tileLayer(
           'https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoibGluYmVpMjIiLCJhIjoiY2w2bm93YWNjMDJiZzNjbnNpZnI5cGU0dCJ9.pyCWigIJnyW3kjTuXzW8Aw',
@@ -59,7 +66,12 @@ export default {
         .addTo(map)
     })
     async function getIPLocation() {
-      let ip = IP.value || '27.39.72.114'
+      if (isLoading.value || IP.value === lastIP) return
+      if (!reg.test(IP.value) && IP.value) {
+        alert('请输入正确的IP地址')
+        return
+      }
+      isLoading.value = true
       try {
         let {
           data: {
@@ -68,7 +80,7 @@ export default {
             location: { timezone, lat, lng, city }
           }
         } = await axios.get(
-          `https://geo.ipify.org/api/v2/country,city?apiKey=at_sZ3cXVaitIONLH77nZI92Dsh9VQPQ&ipAddress=${ip}`
+          `https://geo.ipify.org/api/v2/country,city?apiKey=at_sZ3cXVaitIONLH77nZI92Dsh9VQPQ&ipAddress=${IP.value}`
         )
         ipInfo.value = {
           isp,
@@ -76,13 +88,23 @@ export default {
           timezone,
           ipAddress
         }
-        leaflet.marker([lat, lng]).addTo(map)
-        map.setView([lat, lng], 13)
+        latlng = [lat, lng]
+        point = leaflet.marker(latlng).addTo(map)
+        map.setView(latlng, 13)
+        IP.value = lastIP = ipAddress
       } catch (error) {
         console.log(error)
       }
+      isLoading.value = false
     }
-    return { IP, ipInfo, getIPLocation }
+    function reset() {
+      IP.value = ''
+      ipInfo.value = null
+      point.remove()
+      map.setView(latlng, 4)
+      lastIP = ' '
+    }
+    return { IP, ipInfo, isLoading, getIPLocation, reset }
   }
 }
 </script>
