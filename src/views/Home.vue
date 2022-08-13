@@ -70,6 +70,15 @@ export default {
       if (!reg.test(IP.value) && IP.value) {
         alert('请输入正确的IP地址')
         return
+      } else if (
+        !IP.value
+          .split('.')
+          .map((x) => parseInt(x))
+          .every((x) => x >= 0 && x <= 255) &&
+        IP.value
+      ) {
+        alert('请输入正确的IP地址')
+        return
       }
       isLoading.value = true
       try {
